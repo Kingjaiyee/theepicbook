@@ -31,6 +31,15 @@ stages:
           - checkout: self
             clean: true
 
+          # Fails fast on a broken package.json, on the agent, before any server is touched
+          - task: UseNode@1
+            displayName: 'Use Node.js 22'
+            inputs:
+              version: '22.x'
+
+          - script: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+            displayName: 'Check app dependencies install from the lock file'
+
           # The private key lives only in Secure Files; the agent deletes it when the job ends
           - task: DownloadSecureFile@1
             name: sshKey
@@ -52,7 +61,7 @@ stages:
   - stage: Deploy
     displayName: 'Deploy'
     dependsOn: Validate
-    condition: succeeded()
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: Deploy
         displayName: 'Configure servers and deploy EpicBook'
@@ -83,7 +92,7 @@ stages:
   - stage: Verify
     displayName: 'Verify'
     dependsOn: Deploy
-    condition: succeeded()
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: Verify
         displayName: 'Check the live site from outside'
