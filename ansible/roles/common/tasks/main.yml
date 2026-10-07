@@ -1,0 +1,7 @@
+---
+- name: Install baseline packages, refreshing the apt cache only if older than an hour
+  ansible.builtin.apt:
+    name: [git, curl, ca-certificates]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600

@@ -1,0 +1,12 @@
+---
+app_repo: https://github.com/Kingjaiyee/theepicbook.git
+# The pipeline sets EPICBOOK_APP_VERSION to the commit it is running; locally it falls back to main
+app_version: "{{ lookup('ansible.builtin.env', 'EPICBOOK_APP_VERSION') | default('main', true) }}"
+app_user: epicbook
+app_dest: /opt/epicbook
+db_name: bookstore
+sql_dir: /var/lib/epicbook-sql
+
+# Secrets: read from the environment only (pipeline secret variables, or a local file locally)
+db_admin_username: "{{ lookup('ansible.builtin.env', 'EPICBOOK_DB_USERNAME') }}"
+db_admin_password: "{{ lookup('ansible.builtin.env', 'EPICBOOK_DB_PASSWORD') }}"

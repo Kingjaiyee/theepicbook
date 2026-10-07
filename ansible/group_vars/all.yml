@@ -2,3 +2,6 @@
 # Handoff from epicbook-infra-pipeline outputs. Non-sensitive values only.
 backend_private_ip: "10.30.2.4"
 mysql_fqdn: "epicbook-mysql-31rso.mysql.database.azure.com"
+
+# Application settings shared by frontend (proxy target) and backend (listener)
+backend_app_port: 8080

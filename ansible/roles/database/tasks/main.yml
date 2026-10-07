@@ -1,0 +1,86 @@
+---
+- name: Check that the database credentials were provided
+  ansible.builtin.assert:
+    that:
+      - db_admin_username | length > 0
+      - db_admin_password | length > 0
+    fail_msg: "Set EPICBOOK_DB_USERNAME and EPICBOOK_DB_PASSWORD in the environment"
+    quiet: true
+  no_log: true
+
+- name: Install the MySQL client
+  ansible.builtin.apt:
+    name: mysql-client
+    state: present
+
+- name: Create a root-only directory for EpicBook secrets
+  ansible.builtin.file:
+    path: /etc/epicbook
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write the MySQL client option file (password stays off the command line)
+  ansible.builtin.template:
+    src: mysql-client.cnf.j2
+    dest: /etc/epicbook/mysql-client.cnf
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Create the folder for the schema and seed files
+  ansible.builtin.file:
+    path: "{{ sql_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy the schema and seed files from this repository
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../db/{{ item }}"
+    dest: "{{ sql_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - BuyTheBook_Schema.sql
+    - author_seed.sql
+    - books_seed.sql
+
+- name: Check whether the application database exists
+  ansible.builtin.command: >-
+    mysql --defaults-extra-file=/etc/epicbook/mysql-client.cnf -N -e
+    "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='{{ db_name }}'"
+  register: epicbook_db_exists
+  check_mode: false
+  changed_when: false
+
+- name: Create the application database
+  ansible.builtin.command: >-
+    mysql --defaults-extra-file=/etc/epicbook/mysql-client.cnf -e
+    "CREATE DATABASE `{{ db_name }}` CHARACTER SET utf8mb4"
+  when: epicbook_db_exists.stdout | trim == "0"
+  changed_when: true
+
+- name: Check whether the Book table already exists
+  ansible.builtin.command: >-
+    mysql --defaults-extra-file=/etc/epicbook/mysql-client.cnf -N -e
+    "SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema='{{ db_name }}' AND table_name='Book'"
+  register: epicbook_book_table
+  check_mode: false
+  changed_when: false
+
+- name: Import the schema and seed data in order (only into an empty database)
+  ansible.builtin.shell: >-
+    mysql --defaults-extra-file=/etc/epicbook/mysql-client.cnf {{ db_name }}
+    < {{ sql_dir }}/{{ item }}
+  loop:
+    - BuyTheBook_Schema.sql
+    - author_seed.sql
+    - books_seed.sql
+  when: epicbook_book_table.stdout | trim == "0"
+  changed_when: true

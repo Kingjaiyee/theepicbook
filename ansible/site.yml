@@ -1,0 +1,71 @@
+---
+- name: Baseline for all hosts
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Frontend - Nginx reverse proxy
+  hosts: frontend
+  become: true
+  roles:
+    - frontend
+
+# database runs before backend so the seed data is in place before Sequelize starts
+- name: Backend - database preparation and EpicBook service
+  hosts: backend
+  become: true
+  roles:
+    - database
+    - backend
+
+- name: Verify the backend and the database
+  hosts: backend
+  become: true
+  tasks:
+    - name: Read service states
+      ansible.builtin.service_facts:
+
+    - name: Confirm the epicbook service is running
+      ansible.builtin.assert:
+        that: ansible_facts.services['epicbook.service'].state == 'running'
+        fail_msg: "epicbook.service is not running"
+
+    - name: Confirm EpicBook is listening on its port
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ backend_app_port }}"
+        timeout: 30
+
+    - name: Count the seeded books
+      ansible.builtin.command: >-
+        mysql --defaults-extra-file=/etc/epicbook/mysql-client.cnf -N -e
+        "SELECT COUNT(*) FROM {{ db_name }}.Book"
+      register: epicbook_book_count
+      changed_when: false
+
+    - name: Confirm the Book table has data
+      ansible.builtin.assert:
+        that: epicbook_book_count.stdout | trim | int > 0
+        success_msg: "Book table has {{ epicbook_book_count.stdout | trim }} rows"
+
+- name: Verify the frontend end to end
+  hosts: frontend
+  become: true
+  tasks:
+    - name: Validate the Nginx configuration
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Request the home page through Nginx and the backend
+      ansible.builtin.uri:
+        url: http://localhost/
+        return_content: true
+        status_code: 200
+        timeout: 15
+      register: epicbook_home
+
+    - name: Confirm the deployed page shows my name
+      ansible.builtin.assert:
+        that: "'Victor Durojaiye' in epicbook_home.content"
+        success_msg: "EpicBook answered HTTP {{ epicbook_home.status }} with my name in the footer"

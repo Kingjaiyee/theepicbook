@@ -1,0 +1,21 @@
+# Managed by Ansible.
+[Unit]
+Description=EpicBook bookstore (Node.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory={{ app_dest }}
+EnvironmentFile=/etc/epicbook/epicbook.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,90 @@
+---
+- name: Add the NodeSource Node.js 22 repository
+  ansible.builtin.deb822_repository:
+    name: nodesource
+    types: deb
+    uris: https://deb.nodesource.com/node_22.x
+    suites: nodistro
+    components: main
+    signed_by: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+
+- name: Install Node.js 22
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: true
+
+- name: Create the epicbook system user that runs the app
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /var/lib/epicbook
+    create_home: true
+
+- name: Create the application folder
+  ansible.builtin.file:
+    path: "{{ app_dest }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Check out EpicBook at the requested commit
+  ansible.builtin.git:
+    repo: "{{ app_repo }}"
+    dest: "{{ app_dest }}"
+    version: "{{ app_version }}"
+  become: true
+  become_user: "{{ app_user }}"
+  register: epicbook_repo
+  notify: Restart epicbook
+
+- name: Check whether dependencies are installed
+  ansible.builtin.stat:
+    path: "{{ app_dest }}/node_modules"
+  register: epicbook_node_modules
+
+- name: Install Node.js dependencies exactly as locked (only when code changed or missing)
+  ansible.builtin.command: npm ci --omit=dev --no-audit --no-fund
+  args:
+    chdir: "{{ app_dest }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: epicbook_repo.changed or not epicbook_node_modules.stat.exists
+  changed_when: true
+  notify: Restart epicbook
+
+- name: Make sure the secrets directory exists
+  ansible.builtin.file:
+    path: /etc/epicbook
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write the app environment file with the database connection
+  ansible.builtin.template:
+    src: epicbook.env.j2
+    dest: /etc/epicbook/epicbook.env
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart epicbook
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: epicbook.service.j2
+    dest: /etc/systemd/system/epicbook.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart epicbook
+
+- name: Ensure EpicBook is enabled and running
+  ansible.builtin.systemd:
+    name: epicbook
+    state: started
+    enabled: true
+    daemon_reload: true

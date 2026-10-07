@@ -1,0 +1,9 @@
+# Managed by Ansible. Root-only, mode 0600.
+[client]
+host={{ mysql_fqdn }}
+port=3306
+user={{ db_admin_username }}
+password={{ db_admin_password }}
+# Azure MySQL requires TLS; also verify the certificate and the host name
+ssl-mode=VERIFY_IDENTITY
+ssl-ca=/etc/ssl/certs/ca-certificates.crt
