@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/pravinmishraaws/theepicbook#readme",
   "dependencies": {
+    "not-a-real-package-xyz": "1.0.0",
     "@handlebars/allow-prototype-access": "^1.0.3",
     "accounting": "^0.4.1",
     "eslint": "^7.4.0",
