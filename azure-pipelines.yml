@@ -1,0 +1,5 @@
+   trigger: none
+   pool:
+     name: SelfHostedPool
+   steps:
+     - script: echo "Placeholder, replaced in Task 7"
