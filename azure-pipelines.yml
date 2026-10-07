@@ -1,5 +1,113 @@
-   trigger: none
-   pool:
-     name: SelfHostedPool
-   steps:
-     - script: echo "Placeholder, replaced in Task 7"
+# EpicBook Application Pipeline: Validate -> Deploy -> Verify
+trigger:
+  branches:
+    include:
+      - main
+
+pr: none
+
+pool:
+  name: SelfHostedPool
+
+variables:
+  - group: epicbook-secrets
+  - name: ansibleDir
+    value: '$(System.DefaultWorkingDirectory)/ansible'
+  - name: frontendUrl
+    value: 'http://4.225.168.136/'
+  - name: backendPublicIp
+    value: '20.91.222.33'
+  - name: mysqlFqdn
+    value: 'epicbook-mysql-31rso.mysql.database.azure.com'
+
+stages:
+  # ---------- Stage 1: Validate ----------
+  - stage: Validate
+    displayName: 'Validate'
+    jobs:
+      - job: Validate
+        displayName: 'Inventory, syntax and SSH checks'
+        steps:
+          - checkout: self
+            clean: true
+
+          # The private key lives only in Secure Files; the agent deletes it when the job ends
+          - task: DownloadSecureFile@1
+            name: sshKey
+            displayName: 'Download the Ansible SSH key'
+            inputs:
+              secureFile: 'epicbook_ansible_ed25519'
+
+          - script: |
+              set -euo pipefail
+              chmod 600 "$(sshKey.secureFilePath)"
+              ansible --version | head -1
+              ansible-inventory --graph
+              ansible-playbook site.yml --syntax-check
+              ansible all -m ansible.builtin.ping --private-key "$(sshKey.secureFilePath)"
+            workingDirectory: '$(ansibleDir)'
+            displayName: 'Check inventory, syntax and SSH reachability'
+
+  # ---------- Stage 2: Deploy ----------
+  - stage: Deploy
+    displayName: 'Deploy'
+    dependsOn: Validate
+    condition: succeeded()
+    jobs:
+      - job: Deploy
+        displayName: 'Configure servers and deploy EpicBook'
+        steps:
+          - checkout: self
+            clean: true
+
+          - task: DownloadSecureFile@1
+            name: sshKey
+            displayName: 'Download the Ansible SSH key'
+            inputs:
+              secureFile: 'epicbook_ansible_ed25519'
+
+          # Secrets reach Ansible as environment variables only, never as command-line arguments
+          - script: |
+              set -euo pipefail
+              chmod 600 "$(sshKey.secureFilePath)"
+              echo "Deploying commit $(Build.SourceVersion)"
+              ansible-playbook site.yml --private-key "$(sshKey.secureFilePath)"
+            workingDirectory: '$(ansibleDir)'
+            displayName: 'Run site.yml (configure, deploy, verify)'
+            env:
+              EPICBOOK_DB_USERNAME: $(mysqlAdminUsername)
+              EPICBOOK_DB_PASSWORD: $(mysqlAdminPassword)
+              EPICBOOK_APP_VERSION: $(Build.SourceVersion)
+
+  # ---------- Stage 3: Verify ----------
+  - stage: Verify
+    displayName: 'Verify'
+    dependsOn: Deploy
+    condition: succeeded()
+    jobs:
+      - job: Verify
+        displayName: 'Check the live site from outside'
+        steps:
+          - checkout: none
+
+          - script: |
+              set -euo pipefail
+              code="$(curl -sS -o page.html -w '%{http_code}' "$(frontendUrl)")"
+              echo "Frontend $(frontendUrl) answered HTTP ${code}"
+              test "${code}" = "200"
+
+              grep -o 'Deployed by: <strong>Victor Durojaiye</strong> | <strong>[0-9/]*</strong>' page.html
+              echo "Book entries on the home page: $(grep -c 'data-id=' page.html || true)"
+
+              if timeout 6 bash -c "</dev/tcp/$(backendPublicIp)/8080" 2>/dev/null; then
+                echo "ERROR: backend port 8080 is reachable from the internet"; exit 1
+              fi
+              echo "Backend port 8080 is not reachable from outside (expected)"
+
+              if getent hosts "$(mysqlFqdn)" > /dev/null; then
+                if timeout 6 bash -c "</dev/tcp/$(mysqlFqdn)/3306" 2>/dev/null; then
+                  echo "ERROR: MySQL is reachable from outside the VNet"; exit 1
+                fi
+              fi
+              echo "MySQL is not reachable from outside the VNet (expected)"
+            displayName: 'Check HTTP, my name, and that private ports stay private'
