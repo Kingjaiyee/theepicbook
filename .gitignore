@@ -1,2 +1,8 @@
 node_modules
 .DS_Store
+
+# Ansible and keys
+*.pem
+*.key
+*_ed25519
+*.retry
