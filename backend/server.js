@@ -17,6 +17,16 @@ app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// Health check for Docker and the reverse proxy: 200 only when the database answers
+app.get("/health", async (req, res) => {
+  try {
+    await db.sequelize.authenticate();
+    res.status(200).json({ status: "ok", database: "up" });
+  } catch (err) {
+    res.status(503).json({ status: "error", database: "down" });
+  }
+});
+
 app.engine("handlebars", exphbs({ defaultLayout: "main" }));
 app.set("view engine", "handlebars");
 

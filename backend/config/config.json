@@ -15,10 +15,12 @@
   },
   "production": {
     "use_env_variable": "JAWSDB_URL",
+    "logging": false,
     "dialect": "mysql",
     "dialectOptions": {
+      "connectTimeout": 3000,
       "ssl": {
-        "rejectUnauthorized": true
+        "rejectUnauthorized": false
       }
     }
   }

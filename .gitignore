@@ -6,3 +6,10 @@ node_modules
 *.key
 *_ed25519
 *.retry
+
+# Secrets and runtime data (never committed)
+.env
+.env.*
+!.env.example
+logs/
+backups/
