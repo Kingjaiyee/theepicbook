@@ -64,9 +64,9 @@ services:
     image: ghcr.io/kingjaiyee/epicbook-frontend:${IMAGE_TAG:-dev}
     restart: unless-stopped
     networks: [front-tier]
-    # No ports: the proxy reaches it as frontend:80
+    # No ports: the proxy reaches it as frontend:8080
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/assets/css/style.css"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/assets/css/style.css"]
       interval: 10s
       timeout: 5s
       retries: 3

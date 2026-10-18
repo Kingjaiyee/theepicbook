@@ -20,7 +20,7 @@ Real values live only in `.env` on the VM (mode 600, git-ignored). This file lis
 | Service | Internal port | Published to host | Network(s) |
 |---|---|---|---|
 | reverse-proxy | 80 | `0.0.0.0:80` (the only public port) | front-tier |
-| frontend | 80 | no | front-tier |
+| frontend | 8080 | no | front-tier |
 | backend | 8080 | no | front-tier, back-tier |
 | database | 3306 | no | back-tier (internal) |
 
@@ -39,5 +39,5 @@ Real values live only in `.env` on the VM (mode 600, git-ignored). This file lis
 |---|---|---|
 | database | `mysqladmin ping` over TCP `127.0.0.1` as the app user | The real server accepts logins, not the temporary init server |
 | backend | `wget http://127.0.0.1:8080/health` | App is up and the database query succeeds |
-| frontend | `wget http://127.0.0.1/assets/css/style.css` | Nginx serves a real static file |
+| frontend | `wget http://127.0.0.1:8080/assets/css/style.css` | Nginx serves a real static file |
 | reverse-proxy | `wget http://127.0.0.1/proxy-health` | Nginx answers; endpoint allows localhost only |

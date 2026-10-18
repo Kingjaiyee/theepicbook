@@ -6,7 +6,7 @@ Nginx (`reverse-proxy`) is the only service with a published port (80). Pages, s
 
 | Request | Nginx location | Sent to |
 |---|---|---|
-| `/assets/*` (CSS, images, JS) | `location /assets/` | `frontend:80` (Nginx static files), 7-day browser cache |
+| `/assets/*` (CSS, images, JS) | `location /assets/` | `frontend:8080` (Nginx static files, non-root), 7-day browser cache |
 | `/api/*` (cart API) | `location /api/` | `backend:8080` |
 | `/health` | `location = /health` | `backend:8080` (checks the database) |
 | `/`, `/cart`, `/gallery`, `/category/...` | `location /` | `backend:8080` (Express + Handlebars pages) |

@@ -6,7 +6,7 @@
 |---|---|---|---|
 | database | `mysqladmin ping -h 127.0.0.1` as the app user, password via `MYSQL_PWD` | 10s / 5s / 10 / 60s | The real MySQL server accepts TCP logins |
 | backend | `wget http://127.0.0.1:8080/health` | 10s / 5s / 6 / 20s | App answers and its database check passes (503 if the database is down) |
-| frontend | `wget --spider http://127.0.0.1/assets/css/style.css` | 10s / 5s / 3 / 5s | Nginx serves a real static file |
+| frontend | `wget --spider http://127.0.0.1:8080/assets/css/style.css` | 10s / 5s / 3 / 5s | Nginx serves a real static file |
 | reverse-proxy | `wget --spider http://127.0.0.1/proxy-health` | 10s / 5s / 3 / 5s | Nginx answers (endpoint returns 403 to anyone but localhost) |
 
 ## Startup order (`depends_on` with `condition: service_healthy`)
